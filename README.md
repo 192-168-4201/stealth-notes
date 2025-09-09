@@ -20,9 +20,9 @@ A minimal, glassy **Electron** notes app with a **slide‑out sidebar** that **g
 
 ## 🖼️ Demo
 
-```md
+
 ![Stealth Notes demo](docs/demo.gif)
-```
+
 
 ---
 
