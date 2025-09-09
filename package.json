@@ -1,0 +1,14 @@
+{
+    "name": "sleek-notes-app",
+    "version": "1.0.0",
+    "description": "Glass notes app with slide-out sidebar that grows the window left",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron ."
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "electron": "^29.0.0"
+    }
+}

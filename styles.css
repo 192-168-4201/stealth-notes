@@ -1,0 +1,174 @@
+/* Root */
+html,
+body {
+    background: transparent;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Variables */
+:root {
+    --sidebar-w: 280px;
+    /* desired sidebar width (renderer may clamp) */
+    --content-shift: 0px;
+    /* 0 when closed; = actual width when open */
+}
+
+/* Wallpaper (blur target) */
+.wallpaper {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+        radial-gradient(1200px 800px at 20% 10%, rgba(255, 255, 255, 0.06), transparent 60%),
+        radial-gradient(900px 700px at 80% 90%, rgba(255, 255, 255, 0.05), transparent 60%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55));
+}
+
+/* Layout */
+.app-container {
+    display: flex;
+    height: 100%;
+    position: relative;
+}
+
+/* ===== Sidebar: absolute, slides in with translate ===== */
+#sidebar {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: var(--sidebar-w);
+    left: 0;
+    /* JS sets actual left inline */
+    background: rgba(0, 0, 0, 0.30);
+    color: white;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    -webkit-app-region: no-drag;
+    transform: translateX(-100%);
+    /* hidden off-screen */
+    transition: transform 260ms ease;
+    will-change: transform, left;
+}
+
+#sidebar.is-visible {
+    transform: translateX(0);
+}
+
+/* Sidebar chrome */
+.sidebar-top {
+    position: sticky;
+    top: 0;
+    padding: 14px;
+    background: rgba(0, 0, 0, 0.20);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+#newNoteBtn {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 120ms ease, transform 60ms ease;
+}
+
+#newNoteBtn:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+#newNoteBtn:active {
+    transform: translateY(1px);
+}
+
+.sidebar-heading {
+    padding: 10px 14px 6px;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.notes-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+}
+
+.notes-list li {
+    padding: 10px 12px;
+    margin: 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid transparent;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.notes-list li:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.notes-list li.active {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.notes-list::-webkit-scrollbar {
+    width: 10px;
+}
+
+.notes-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+}
+
+/* ===== Glass panel (pushed right when sidebar opens) ===== */
+.main-content {
+    flex: 1 1 auto;
+    position: relative;
+    background-color: rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(22px) saturate(170%);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    -webkit-app-region: no-drag;
+    transform: translateX(var(--content-shift));
+    transition: transform 260ms ease;
+    will-change: transform;
+}
+
+/* Drag bar for moving the window */
+.drag-bar {
+    height: 32px;
+    -webkit-app-region: drag;
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+}
+
+/* Editor */
+#editor {
+    min-height: calc(100% - 32px);
+    padding: 20px 24px;
+    box-sizing: border-box;
+    color: white;
+    caret-color: white;
+    font-size: 1rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    outline: none;
+    -webkit-app-region: no-drag;
+    cursor: text;
+}
