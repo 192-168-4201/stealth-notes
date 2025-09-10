@@ -10,10 +10,9 @@
         const notesList = document.getElementById('notesList');
         const newNoteBtn = document.getElementById('newNoteBtn');
         const editor = document.getElementById('editor');
-        const main = document.querySelector('.main-content');
         const rootStyle = document.documentElement.style;
 
-        if (!main || !container || !sidebar || !editor || !notesList || !newNoteBtn) return;
+        if (!container || !sidebar || !editor || !notesList || !newNoteBtn) return;
 
         // --- constants ---
         const REQUEST_W = 280;
@@ -32,14 +31,18 @@
             if (state !== 'closed') return;
             state = 'opening';
 
-            s_width = sidebar.getBoundingClientRect().width;
-            e_width = editor.getBoundingClientRect().width;
+            // STEP 1: "Snapshot" the right edge, just as you described.
+            const editorRect = editor.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const rightEdgeX = abs(containerRect.right-editorRect.right);
 
+            // STEP 2: Use that value to "pre-position" the sidebar.
+            sidebar.style.left = `${rightEdgeX}px`;
+            sidebar.style.width = `${REQUEST_W}px`;
+
+            // STEP 3: Slide the main content left and grow the window.
+            rootStyle.setProperty('--content-shift', `-${REQUEST_W}px`);
             sidebar.classList.add('is-visible');
-
-            // delta_width = s_width+(e_width-s_width);
-            // sidebar.style.left = `${delta_width}px`; 
-            main.style.width = `${e_width}px`;
             // This function's ONLY job is to tell the window to grow.
             await window.win?.smoothGrowRight?.(REQUEST_W, ANIM_MS);
 
@@ -50,12 +53,11 @@
             if (state !== 'open') return;
             state = 'closing';
 
-            
-            sidebar.classList.remove('is-visible');
-            
             // This function's ONLY job is to tell the window to shrink.
             await window.win?.smoothShrinkRight?.(REQUEST_W, ANIM_MS);
-            main.style.width = `100%`;
+            rootStyle.setProperty('--content-shift', '0px');
+            sidebar.classList.remove('is-visible')
+
             state = 'closed';
         }
 

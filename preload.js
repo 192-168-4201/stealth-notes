@@ -2,6 +2,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('win', {
-    smoothGrowLeft: (px, ms = 260) => ipcRenderer.invoke('win:smoothGrowLeft', px, ms),
-    smoothShrinkLeft: (px, ms = 260) => ipcRenderer.invoke('win:smoothShrinkLeft', px, ms),
+    smoothGrowRight: (px, ms = 260) => ipcRenderer.invoke('win:smoothGrowRight', px, ms),
+    smoothShrinkRight: (px, ms = 260) => ipcRenderer.invoke('win:smoothShrinkRight', px, ms),
 });

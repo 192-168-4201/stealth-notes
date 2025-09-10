@@ -30,7 +30,6 @@ body {
 
 /* Layout */
 .app-container {
-    display: flex;
     height: 100%;
     position: relative;
 }
@@ -39,20 +38,14 @@ body {
 #sidebar {
     position: absolute;
     top: 0;
+    right:0;
     height: 100%;
     width: var(--sidebar-w);
-    left: 0;
-    /* JS sets actual left inline */
     background: rgba(0, 0, 0, 0.30);
     color: white;
-    z-index: 99999;
-    display: flex;
-    flex-direction: column;
-    -webkit-app-region: no-drag;
-    transform: translateX(-100%);
-    /* hidden off-screen */
-    transition: transform 260ms ease;
-    will-change: transform, left;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: transform 260ms ease, opacity 260ms ease;
 }
 
 #sidebar.is-visible {
@@ -136,39 +129,39 @@ body {
 
 /* ===== Glass panel (pushed right when sidebar opens) ===== */
 .main-content {
-    flex: 1 1 auto;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* width: 100%; */
+    width: 900px;
+    height: 100%;
+
     background-color: rgba(255, 255, 255, 0.10);
     backdrop-filter: blur(22px) saturate(170%);
     -webkit-backdrop-filter: blur(22px) saturate(170%);
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 14px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-    -webkit-app-region: no-drag;
     transform: translateX(var(--content-shift));
-    transition: transform 260ms ease;
-    will-change: transform;
 }
 
 /* Drag bar for moving the window */
 .drag-bar {
     height: 32px;
     -webkit-app-region: drag;
-    border-top-left-radius: 14px;
-    border-top-right-radius: 14px;
 }
 
 /* Editor */
 #editor {
     min-height: calc(100% - 32px);
     padding: 20px 24px;
-    box-sizing: border-box;
+    /* box-sizing: border-box; */
     color: white;
-    caret-color: white;
-    font-size: 1rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
+    /* caret-color: white; */
+    /* font-size: 1rem; */
+    /* line-height: 1.5; */
+    /* white-space: pre-wrap; */
     outline: none;
-    -webkit-app-region: no-drag;
-    cursor: text;
+    /* -webkit-app-region: no-drag;
+    cursor: text; */
 }
