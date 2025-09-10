@@ -20,6 +20,7 @@
         const ANIM_MS = 260;
         const TRIGGER = 14;
         const CLOSE_M = 40;
+        var pervWidth = ``;
 
         // --- REMOVED COMPLEX HELPERS ---
         // The positionSidebarToEditorRight and alignDuringAnimation functions have been removed.
@@ -31,31 +32,28 @@
         async function showSidebar() {
             if (state !== 'closed') return;
             state = 'opening';
+            
+            const sWidth = sidebar.getBoundingClientRect().width;
+            const eWidth = editor.getBoundingClientRect().width;
 
-            s_width = sidebar.getBoundingClientRect().width;
-            e_width = editor.getBoundingClientRect().width;
-
-            sidebar.classList.add('is-visible');
-
-            // delta_width = s_width+(e_width-s_width);
-            // sidebar.style.left = `${delta_width}px`; 
-            main.style.width = `${e_width}px`;
+            main.style.width = `${eWidth}px`;
+            pervWidth = `${eWidth}px`;
             // This function's ONLY job is to tell the window to grow.
             await window.win?.smoothGrowRight?.(REQUEST_W, ANIM_MS);
-
+            sidebar.classList.add('is-visible');
             state = 'open';
         }
 
         async function hideSidebar() {
-            if (state !== 'open') return;
+            if (state !== 'open' || container.getBoundingClientRect().width !== editor.getBoundingClientRect().width + sidebar.getBoundingClientRect().width){console.log(editor.getBoundingClientRect().width + sidebar.getBoundingClientRect().width); return;}
             state = 'closing';
-
             
             sidebar.classList.remove('is-visible');
             
             // This function's ONLY job is to tell the window to shrink.
             await window.win?.smoothShrinkRight?.(REQUEST_W, ANIM_MS);
-            main.style.width = `100%`;
+            main.style.removeProperty('width');
+            
             state = 'closed';
         }
 
