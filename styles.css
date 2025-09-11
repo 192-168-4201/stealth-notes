@@ -40,7 +40,7 @@ body {
 #sidebar {
     position: absolute;
     top: 0;
-    right:0;
+    right: 0;
     height: 100%;
     width: var(--sidebar-w);
     background: rgba(0, 0, 0, 0.30);
@@ -95,14 +95,17 @@ body {
     color: rgba(255, 255, 255, 0.7);
 }
 
+/* Notes list: never expand; show first words only */
 .notes-list {
     list-style: none;
     margin: 0;
     padding: 6px;
     overflow-y: auto;
+    /* already present, keeps the list scrollable */
     flex: 1 1 auto;
 }
 
+/* Each note title: one line, clipped, with a gradient fade at the end */
 .notes-list li {
     padding: 10px 12px;
     margin: 6px;
@@ -111,6 +114,15 @@ body {
     background: transparent;
     border: 1px solid transparent;
     transition: background 120ms ease, border-color 120ms ease;
+
+    /* truncation + fade */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    /* soft edge fade (supported in Chromium/Electron) */
+    -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
+    mask-image: linear-gradient(to right, black 80%, transparent 100%);
 }
 
 .notes-list li:hover {
@@ -122,13 +134,37 @@ body {
     border-color: rgba(255, 255, 255, 0.25);
 }
 
+/* Fade the TEXT only */
+.notes-list li .note-title {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* backup for non-mask cases */
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+
 .notes-list::-webkit-scrollbar {
-    width: 10px;
+    width: 8px;
+}
+
+.notes-list::-webkit-scrollbar-track {
+    background: transparent;
+    /* <-- kill the white track */
 }
 
 .notes-list::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
     border-radius: 8px;
+    border: 2px solid transparent;
+    /* no white border edge */
+    background-clip: padding-box;
+}
+
+.notes-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
 }
 
 /* ===== Glass panel (pushed right when sidebar opens) ===== */
@@ -156,18 +192,97 @@ body {
     border-radius: 14px;
     overflow: hidden;
 }
+/* Window controls (inside the drag bar) */
+.drag-bar {
+    position: relative;
+}
+
+.window-controls {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    display: flex;
+    gap: 6px;
+    -webkit-app-region: no-drag;
+    /* make buttons clickable */
+}
+
+.win-btn {
+    width: 28px;
+    height: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    font-size: 18px;
+    line-height: 20px;
+    padding: 0;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background 120ms ease, border-color 120ms ease, transform 60ms ease;
+}
+
+.win-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.win-btn:active {
+    transform: translateY(1px);
+}
+
+/* Close button color on hover (modern red) */
+.win-btn--close:hover {
+    background: rgba(255, 71, 87, 0.25);
+    border-color: rgba(255, 71, 87, 0.45);
+    color: white;
+}
 
 /* Editor */
 #editor {
-    min-height: calc(100% - 32px);
+    /* occupy the space below the drag bar */
+    height: calc(100% - 32px);
     padding: 20px 24px;
-    /* box-sizing: border-box; */
+    box-sizing: border-box;
+
     color: white;
-    /* caret-color: white; */
-    /* font-size: 1rem; */
-    /* line-height: 1.5; */
-    /* white-space: pre-wrap; */
     outline: none;
-    /* -webkit-app-region: no-drag;
-    cursor: text; */
+
+    /* make long content behave */
+    overflow: auto;
+    /* <-- scroll when needed */
+    white-space: pre-wrap;
+    /* keep line breaks from paste */
+    overflow-wrap: break-word;
+    /* wrap long words / URLs */
+    word-break: break-word;
+    /* extra safety for long tokens */
+}
+
+/* keep pasted images inside the panel */
+#editor img {
+    max-width: 100%;
+    height: auto;
+    display: inline-block;
+}
+
+/* Editor scrollbar */
+#editor::-webkit-scrollbar {
+    width: 8px;
+}
+
+#editor::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#editor::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+#editor::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
 }

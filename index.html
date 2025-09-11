@@ -23,7 +23,13 @@
 
         <!-- Glass content panel -->
         <main class="main-content">
-            <div class="drag-bar" aria-hidden="true"></div>
+            <div class="drag-bar">
+                <div class="window-controls" aria-label="Window controls">
+                    <button id="minBtn" class="win-btn" title="Minimize" aria-label="Minimize">–</button>
+                    <button id="closeBtn" class="win-btn win-btn--close" title="Close" aria-label="Close">×</button>
+                </div>
+            </div>
+
             <div id="editor" contenteditable="true" spellcheck="true"></div>
         </main>
     </div>
