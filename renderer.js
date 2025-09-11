@@ -4,6 +4,11 @@
     window.__notesInit = true;
 
     window.addEventListener('DOMContentLoaded', () => {
+        // Splash refs
+        const splash = document.getElementById('splash');
+        const splashLogo = document.getElementById('splashLogo');
+        let splashActive = !!splash;
+
         const container = document.querySelector('.app-container');
         const sidebar = document.getElementById('sidebar');
         const notesList = document.getElementById('notesList');
@@ -13,7 +18,7 @@
         const minBtn = document.getElementById('minBtn');
         const closeBtn = document.getElementById('closeBtn');
 
-        if (minBtn) minBtn.addEventListener('click', () => window.win?.minimize());
+        if (minBtn) minBtn.addEventListener('click', () => window.win?.animateMinimize?.());
         if (closeBtn) closeBtn.addEventListener('click', () => window.win?.close());
 
         if (!container || !sidebar || !notesList || !newNoteBtn || !editor || !main) return;
@@ -23,6 +28,28 @@
         const TRIGGER = 18;    // slightly wider edge band
         const CLOSE_M = 40;
         const EASE = 'cubic-bezier(.2,.8,.2,1)';
+
+        // --- Splash logic ---
+        function dismissSplash() {
+            if (!splash || !splashActive) return;
+            splash.classList.add('is-hidden');
+            const finalize = () => {
+                splash?.removeEventListener('transitionend', finalize);
+                splash?.remove();
+                splashActive = false;
+                // Now that splash is gone, place caret in editor so you can type immediately
+                editor?.focus();
+            };
+            // remove after transition (or immediately if no transition)
+            if (getComputedStyle(splash).transitionDuration === '0s') finalize();
+            else splash.addEventListener('transitionend', finalize, { once: true });
+        }
+        // click anywhere on splash (logo is non-interactive so container gets it)
+        splash?.addEventListener('click', dismissSplash);
+        // also allow any key to dismiss for accessibility
+        document.addEventListener('keydown', (e) => {
+            if (splashActive) dismissSplash();
+        });
 
         // state
         let state = 'closed';
@@ -117,6 +144,7 @@
         }
 
         document.addEventListener('mousemove', (e) => {
+            if (splashActive) return; // pause edge-UI until splash is gone
             lastMouse.x = e.clientX;
             lastMouse.y = e.clientY;
 
@@ -141,6 +169,7 @@
         });
 
         sidebar.addEventListener('mouseleave', (e) => {
+            if (splashActive) return;
             const r = editor.getBoundingClientRect();
             if (state === 'open' && !opening && !closing &&
                 performance.now() >= openBarrierUntil && e.clientX > r.right) {
@@ -151,6 +180,7 @@
         // --- Fullscreen toggles ---
         // F11 toggles fullscreen
         document.addEventListener('keydown', (e) => {
+            if (splashActive) return; // ignore FS toggles until splash dismissed
             if (e.key === 'F11') {
                 e.preventDefault();
                 window.win?.toggleFullScreen?.();
@@ -188,18 +218,18 @@
             if (!n) return;
             model.activeId = id;
             editor.textContent = n.content || '';
-            editor.focus();
+            if (!splashActive) editor.focus();
             renderNotes();
         }
 
-        function createNote() {
+        function createNote(focus = true) {
             const id = model.nextId++;
             const n = { id, title: 'Untitled', content: '' };
             model.notes.unshift(n);
             model.activeId = id;
             renderNotes();
             editor.textContent = '';
-            editor.focus();
+            if (focus && !splashActive) editor.focus();
         }
 
         editor.addEventListener('input', () => {
@@ -210,7 +240,8 @@
             renderNotes();
         });
 
-        newNoteBtn.addEventListener('click', createNote);
-        createNote();
+        newNoteBtn.addEventListener('click', () => createNote(true));
+        // On first load, don't steal focus while splash is up
+        createNote(false);
     });
 })();

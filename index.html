@@ -6,8 +6,13 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Wallpaper sits behind and gets blurred by the glass panel -->
-  <div class="wallpaper" aria-hidden="true"></div>
+
+  <div id="splash" class="splash" role="dialog" aria-label="Welcome screen">
+    <img id="splashLogo" class="splash__logo" src="assets/saga-logo-white.png" alt="Sleek Notes Logo">
+    <div class="splash__hint">Click to start</div>
+  </div>
+
+  <!-- Wallpaper sits behind and gets blurred by the glass panel --><div class="wallpaper" aria-hidden="true"></div>
 
   <div class="app-container">
     <!-- Sidebar (slides in; shows New note + list) -->

@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('win', {
     smoothShrinkRight: (px, ms) => ipcRenderer.invoke('win:smoothShrinkRight', px, ms),
     minimize: () => ipcRenderer.invoke('win:minimize'),
     close: () => ipcRenderer.invoke('win:close'),
-
+    animateMinimize: () => ipcRenderer.invoke('win:animateMinimize'),
     // NEW
     isFullScreen: () => ipcRenderer.invoke('win:isFullScreen'),
     setFullScreen: (on) => ipcRenderer.invoke('win:setFullScreen', on),
