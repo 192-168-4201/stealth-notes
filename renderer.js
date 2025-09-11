@@ -1,4 +1,4 @@
-// renderer.js — Stealth Notes: open is atomic; auto-close if pointer is already left.
+// renderer.js — atomic open; smart grow; remainder shifts content when tight to right edge
 (() => {
     if (window.__notesInit) return;
     window.__notesInit = true;
@@ -18,22 +18,29 @@
 
         if (!container || !sidebar || !notesList || !newNoteBtn || !editor || !main) return;
 
-        const REQUEST_W = 280;  // == --sidebar-w in styles.css
+        const REQUEST_W = 280;   // == --sidebar-w in CSS
         const ANIM_MS = 260;
-        const TRIGGER = 14;
+        const TRIGGER = 18;    // slightly wider edge band
         const CLOSE_M = 40;
+        const EASE = 'cubic-bezier(.2,.8,.2,1)';
 
+        // state
         let state = 'closed';
         let opening = false;
         let closing = false;
-
         let openBarrierUntil = 0;
         const OPEN_SETTLE_MS = 80;
 
+        // pointer tracking
         let lastMouse = { x: 0, y: 0 };
         let wantCloseAfterOpen = false;
 
+        // how much the window actually grew last time
+        let lastGrowUsed = 0;
+
         const nextFrame = () => new Promise(requestAnimationFrame);
+        const setShift = (px) => document.documentElement.style.setProperty('--content-shift', `${px}px`);
+
 
         async function lockEditorWidthSafely() {
             main.style.removeProperty('width');
@@ -49,13 +56,31 @@
 
         async function showSidebar() {
             if (state !== 'closed' || opening || closing) return;
-
             opening = true;
             state = 'opening';
 
             await lockEditorWidthSafely();
-            await window.win?.smoothGrowRight?.(REQUEST_W, ANIM_MS); // now truly waits for end
+
+            // Show immediately for perceived speed
             sidebar.classList.add('is-visible');
+
+            // Predict how much we can actually grow, and set the remainder shift UP FRONT,
+            // so the inward slide animates in sync with any window growth.
+            const cap = (await window.win?.rightGrowCapacity?.()) | 0;
+            const expectedUsed = Math.min(REQUEST_W, Math.max(0, cap));
+            const predictedRemainder = Math.max(0, REQUEST_W - expectedUsed);
+            setShift(predictedRemainder);
+
+            // Ensure the CSS transition duration matches ANIM_MS
+            main.style.transition = `transform ${ANIM_MS}ms ${EASE}`;
+
+            // Ask main to grow; it returns how many px it actually managed to grow.
+            const used = await window.win?.smoothGrowRight?.(REQUEST_W, ANIM_MS) || 0;
+            lastGrowUsed = used;
+
+            // Correct the shift only if prediction was off (rare)
+            const remainder = Math.max(0, REQUEST_W - used);
+            if (remainder !== predictedRemainder) setShift(remainder);
 
             state = 'open';
             opening = false;
@@ -68,12 +93,23 @@
 
         async function hideSidebar() {
             if (state !== 'open' || opening || closing || performance.now() < openBarrierUntil) return;
-
             closing = true;
             state = 'closing';
 
             sidebar.classList.remove('is-visible');
-            await window.win?.smoothShrinkRight?.(REQUEST_W, ANIM_MS);
+
+            // If fullscreen, there’s nothing to shrink (we grew inward). Otherwise, shrink what we used.
+            const fs = await window.win?.isFullScreen?.();
+            if (!fs) {
+                await window.win?.smoothShrinkRight?.(lastGrowUsed, ANIM_MS);
+            } else {
+                // keep transition consistent for the slide-back
+                main.style.transition = `transform ${ANIM_MS}ms ${EASE}`;
+            }
+
+            lastGrowUsed = 0;
+            setShift(0);
+
             main.style.removeProperty('width');
 
             state = 'closed';
@@ -98,33 +134,34 @@
                 return;
             }
 
-            if (
-                state === 'open' &&
-                !opening &&
-                !closing &&
-                performance.now() >= openBarrierUntil &&
-                x < r.right - CLOSE_M
-            ) {
+            if (state === 'open' && !opening && !closing &&
+                performance.now() >= openBarrierUntil && x < r.right - CLOSE_M) {
                 hideSidebar();
             }
         });
 
         sidebar.addEventListener('mouseleave', (e) => {
             const r = editor.getBoundingClientRect();
-            if (
-                state === 'open' &&
-                !opening &&
-                !closing &&
-                performance.now() >= openBarrierUntil &&
-                e.clientX > r.right
-            ) {
+            if (state === 'open' && !opening && !closing &&
+                performance.now() >= openBarrierUntil && e.clientX > r.right) {
                 hideSidebar();
             }
         });
 
+        // --- Fullscreen toggles ---
+        // F11 toggles fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F11') {
+                e.preventDefault();
+                window.win?.toggleFullScreen?.();
+            }
+        });
+        // Double-click the drag bar to toggle fullscreen
+        document.querySelector('.drag-bar')?.addEventListener('dblclick', () => {
+            window.win?.toggleFullScreen?.();
+        });
 
-
-        // notes (unchanged)
+        // ---------- minimal notes model ----------
         const model = { notes: [], activeId: null, nextId: 1 };
         const titleFrom = (t) => (t || '').split(/\r?\n/)[0].trim() || 'Untitled';
 
@@ -132,13 +169,14 @@
             notesList.innerHTML = '';
             model.notes.forEach(n => {
                 const li = document.createElement('li');
+
                 const titleEl = document.createElement('span');
-                titleEl.className = 'note-title';
+                titleEl.className = 'note-title'; // fade text only
                 titleEl.textContent = n.title;
-                titleEl.title = n.title;           // full title on hover
+                titleEl.title = n.title;          // tooltip full title
                 li.appendChild(titleEl);
+
                 li.dataset.id = String(n.id);
-                li.title = n.title;   // show full title on hover
                 if (n.id === model.activeId) li.classList.add('active');
                 li.addEventListener('click', () => selectNote(n.id));
                 notesList.appendChild(li);

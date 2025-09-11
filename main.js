@@ -1,13 +1,27 @@
-// main.js — grow/shrink RIGHT with real async (Promises resolve on completion)
-const { app, BrowserWindow, ipcMain } = require('electron');
+// main.js — async grow/shrink + right-edge capacity aware
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 
 let win;
 let animating = false;
-let lastDelta = 0;
+
+// How much room exists to grow to the RIGHT within the display work area?
+function rightGrowCapacity(win) {
+    const b = win.getBounds();
+    const disp = screen.getDisplayMatching(b);
+    const wa = disp.workArea;                        // excludes taskbar/dock
+    const rightEdge = b.x + b.width;
+    const waRight = wa.x + wa.width;
+    return Math.max(0, waRight - rightEdge);
+}
 
 function animateGrowRight(delta, duration = 260) {
     if (!win || animating || delta <= 0) return Promise.resolve(0);
+    if (win.isFullScreen && win.isFullScreen()) return Promise.resolve(0);
+
+    const capacity = rightGrowCapacity(win);
+    const used = Math.min(delta, capacity);          // clamp to what’s possible
+    if (used <= 0) return Promise.resolve(0);
 
     return new Promise((resolve) => {
         const b0 = win.getBounds();
@@ -15,40 +29,24 @@ function animateGrowRight(delta, duration = 260) {
         const steps = Math.max(1, Math.round(duration / 16));
         let i = 0;
 
-        // console.log('[MAIN] grow: start', { delta, duration, b0 });
-
         const tick = () => {
             i++;
             const t = i / steps;
-            const ease = 1 - Math.pow(1 - t, 3); // ease-out
-            const cur = Math.round(delta * ease);
-
-            // Keep 'x' the same, only increase 'width'
-            win.setBounds({ x: b0.x, width: b0.width + cur, y: b0.y, height: b0.height }, true);
-
-            if (i < steps) {
-                setTimeout(tick, 16);
-            } else {
-                animating = false;
-                lastDelta = delta;
-                // const b1 = win.getBounds();
-                // console.log('[MAIN] grow: done', { finalBounds: b1, lastDelta });
-                resolve(delta);
-            }
+            const ease = 1 - Math.pow(1 - t, 3);         // ease-out
+            const cur = Math.round(used * ease);
+            win.setBounds({ x: b0.x, y: b0.y, height: b0.height, width: b0.width + cur }, true);
+            if (i < steps) setTimeout(tick, 16);
+            else { animating = false; resolve(used); }
         };
-
         tick();
     });
 }
 
 function animateShrinkRight(delta, duration = 260) {
     if (!win || animating) return Promise.resolve(0);
-
-    const used = Math.max(0, Math.min(delta || lastDelta, lastDelta));
-    if (used <= 0) {
-        lastDelta = 0;
-        return Promise.resolve(0);
-    }
+    if (win.isFullScreen && win.isFullScreen()) return Promise.resolve(0);
+    const used = Math.max(0, delta | 0);             // shrink exactly what we grew
+    if (used <= 0) return Promise.resolve(0);
 
     return new Promise((resolve) => {
         const b0 = win.getBounds();
@@ -56,28 +54,15 @@ function animateShrinkRight(delta, duration = 260) {
         const steps = Math.max(1, Math.round(duration / 16));
         let i = 0;
 
-        // console.log('[MAIN] shrink: start', { used, duration, b0 });
-
         const tick = () => {
             i++;
             const t = i / steps;
-            const ease = Math.pow(t, 3); // ease-in
+            const ease = Math.pow(t, 3);                 // ease-in
             const cur = Math.round(used * ease);
-
-            // Keep 'x' the same, only decrease 'width'
-            win.setBounds({ x: b0.x, width: b0.width - cur, y: b0.y, height: b0.height }, true);
-
-            if (i < steps) {
-                setTimeout(tick, 16);
-            } else {
-                animating = false;
-                lastDelta = 0;
-                // const b1 = win.getBounds();
-                // console.log('[MAIN] shrink: done', { finalBounds: b1, lastDelta });
-                resolve(used);
-            }
+            win.setBounds({ x: b0.x, y: b0.y, height: b0.height, width: b0.width - cur }, true);
+            if (i < steps) setTimeout(tick, 16);
+            else { animating = false; resolve(used); }
         };
-
         tick();
     });
 }
@@ -90,6 +75,7 @@ function createWindow() {
         transparent: true,
         backgroundColor: '#00000000',
         titleBarStyle: 'hidden',
+        fullscreenable: true,
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,
@@ -100,16 +86,22 @@ function createWindow() {
     win.setMinimumSize(400, 350);
     win.loadFile('index.html');
 
-    // Important: return Promises so ipcRenderer.invoke() truly awaits animation end
     ipcMain.handle('win:smoothGrowRight', async (_e, px, ms) =>
         animateGrowRight(Math.max(0, px | 0), Math.max(0, ms | 0))
     );
     ipcMain.handle('win:smoothShrinkRight', async (_e, px, ms) =>
         animateShrinkRight(Math.max(0, px | 0), Math.max(0, ms | 0))
     );
+
     ipcMain.handle('win:minimize', () => { if (win) win.minimize(); });
     ipcMain.handle('win:close', () => { if (win) win.close(); });
-
+    // NEW: fullscreen + capacity helpers
+    ipcMain.handle('win:isFullScreen', () => (win?.isFullScreen?.() ?? false));
+    ipcMain.handle('win:setFullScreen', (_e, on) => { if (win) win.setFullScreen(!!on); });
+    ipcMain.handle('win:toggleFullScreen', () => {
+        if (win) win.setFullScreen(!win.isFullScreen());
+    });
+    ipcMain.handle('win:rightGrowCapacity', () => rightGrowCapacity(win));
 }
 
 app.whenReady().then(createWindow);

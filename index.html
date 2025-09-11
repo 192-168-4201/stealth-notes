@@ -1,40 +1,37 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <meta charset="UTF-8" />
-    <title>Sleek Notes</title>
-    <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <title>Sleek Notes</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body>
-    <!-- Wallpaper sits behind and gets blurred by the glass panel -->
-    <div class="wallpaper" aria-hidden="true"></div>
+  <!-- Wallpaper sits behind and gets blurred by the glass panel -->
+  <div class="wallpaper" aria-hidden="true"></div>
 
-    <div class="app-container">
-        <!-- Sidebar (slides in; shows New note + list) -->
-        <aside id="sidebar">
-            <div class="sidebar-top">
-                <button id="newNoteBtn" title="Create a new note">＋ New note</button>
-            </div>
-            <div class="sidebar-heading">Notes</div>
-            <ul id="notesList" class="notes-list"></ul>
-        </aside>
+  <div class="app-container">
+    <!-- Sidebar (slides in; shows New note + list) -->
+    <aside id="sidebar">
+      <div class="sidebar-top">
+        <button id="newNoteBtn" title="Create a new note">＋ New note</button>
+      </div>
+      <div class="sidebar-heading">Notes</div>
+      <ul id="notesList" class="notes-list"></ul>
+    </aside>
 
-        <!-- Glass content panel -->
-        <main class="main-content">
-            <div class="drag-bar">
-                <div class="window-controls" aria-label="Window controls">
-                    <button id="minBtn" class="win-btn" title="Minimize" aria-label="Minimize">–</button>
-                    <button id="closeBtn" class="win-btn win-btn--close" title="Close" aria-label="Close">×</button>
-                </div>
-            </div>
+    <!-- Glass content panel -->
+    <main class="main-content">
+      <div class="drag-bar">
+        <div class="window-controls" aria-label="Window controls">
+          <button id="minBtn" class="win-btn" title="Minimize" aria-label="Minimize">–</button>
+          <button id="closeBtn" class="win-btn win-btn--close" title="Close" aria-label="Close">×</button>
+        </div>
+      </div>
 
-            <div id="editor" contenteditable="true" spellcheck="true"></div>
-        </main>
-    </div>
+      <div id="editor" contenteditable="true" spellcheck="true"></div>
+    </main>
+  </div>
 
-    <script src="renderer.js"></script>
+  <script src="renderer.js"></script>
 </body>
-
 </html>

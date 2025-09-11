@@ -12,12 +12,12 @@ body {
 /* Variables */
 :root {
     --sidebar-w: 280px;
-    /* desired sidebar width (renderer may clamp) */
+    /* desired sidebar width */
     --content-shift: 0px;
-    /* 0 when closed; = actual width when open */
+    /* 0 when closed; = remainder when open */
 }
 
-/* Wallpaper (blur target) */
+/* Wallpaper (blur target) — rounded/clip to avoid black window corners */
 .wallpaper {
     position: fixed;
     inset: 0;
@@ -26,6 +26,8 @@ body {
         radial-gradient(1200px 800px at 20% 10%, rgba(255, 255, 255, 0.06), transparent 60%),
         radial-gradient(900px 700px at 80% 90%, rgba(255, 255, 255, 0.05), transparent 60%),
         linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55));
+    border-radius: 14px;
+    clip-path: inset(0 round 14px);
 }
 
 /* Layout */
@@ -36,7 +38,7 @@ body {
     overflow: hidden;
 }
 
-/* ===== Sidebar: absolute, slides in with translate ===== */
+/* ===== Sidebar ===== */
 #sidebar {
     position: absolute;
     top: 0;
@@ -47,7 +49,8 @@ body {
     color: white;
     transform: translateX(0);
     opacity: 0;
-    transition: transform 260ms ease, opacity 260ms ease;
+    transition: transform 160ms cubic-bezier(.2, .8, .2, 1), opacity 140ms linear;
+    will-change: transform, opacity;
     z-index: 0;
 }
 
@@ -89,23 +92,21 @@ body {
 
 .sidebar-heading {
     padding: 10px 14px 6px;
-    font-size: 0.85rem;
+    font-size: .85rem;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: .06em;
     color: rgba(255, 255, 255, 0.7);
 }
 
-/* Notes list: never expand; show first words only */
+/* Notes list */
 .notes-list {
     list-style: none;
     margin: 0;
     padding: 6px;
     overflow-y: auto;
-    /* already present, keeps the list scrollable */
     flex: 1 1 auto;
 }
 
-/* Each note title: one line, clipped, with a gradient fade at the end */
 .notes-list li {
     padding: 10px 12px;
     margin: 6px;
@@ -114,15 +115,9 @@ body {
     background: transparent;
     border: 1px solid transparent;
     transition: background 120ms ease, border-color 120ms ease;
-
-    /* truncation + fade */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-
-    /* soft edge fade (supported in Chromium/Electron) */
-    -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
-    mask-image: linear-gradient(to right, black 80%, transparent 100%);
 }
 
 .notes-list li:hover {
@@ -140,26 +135,24 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    /* backup for non-mask cases */
+    /* fallback */
     -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
     mask-image: linear-gradient(to right, black 85%, transparent 100%);
 }
 
-
+/* Sidebar scrollbar */
 .notes-list::-webkit-scrollbar {
     width: 8px;
 }
 
 .notes-list::-webkit-scrollbar-track {
     background: transparent;
-    /* <-- kill the white track */
 }
 
 .notes-list::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
     border-radius: 8px;
     border: 2px solid transparent;
-    /* no white border edge */
     background-clip: padding-box;
 }
 
@@ -167,33 +160,32 @@ body {
     background: rgba(255, 255, 255, 0.22);
 }
 
-/* ===== Glass panel (pushed right when sidebar opens) ===== */
+/* ===== Glass panel (pushed left by --content-shift remainder) ===== */
 .main-content {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-
     background-color: rgba(255, 255, 255, 0.10);
     backdrop-filter: blur(22px) saturate(170%);
     -webkit-backdrop-filter: blur(22px) saturate(170%);
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 14px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-    transform: translateX(var(--content-shift));
+    /* IMPORTANT: positive --content-shift should move content LEFT */
+    transform: translateX(calc(var(--content-shift) * -1));
+    transition: transform 260ms cubic-bezier(.2, .8, .2, 1);
+    will-change: transform;
     z-index: 1;
 }
 
-/* Drag bar for moving the window */
+/* Drag bar & window controls */
 .drag-bar {
     height: 32px;
     -webkit-app-region: drag;
     border-radius: 14px;
     overflow: hidden;
-}
-/* Window controls (inside the drag bar) */
-.drag-bar {
     position: relative;
 }
 
@@ -204,7 +196,6 @@ body {
     display: flex;
     gap: 6px;
     -webkit-app-region: no-drag;
-    /* make buttons clickable */
 }
 
 .win-btn {
@@ -232,35 +223,27 @@ body {
     transform: translateY(1px);
 }
 
-/* Close button color on hover (modern red) */
 .win-btn--close:hover {
     background: rgba(255, 71, 87, 0.25);
     border-color: rgba(255, 71, 87, 0.45);
     color: white;
 }
 
-/* Editor */
+/* Editor (scrolls internally) */
 #editor {
-    /* occupy the space below the drag bar */
     height: calc(100% - 32px);
     padding: 20px 24px;
     box-sizing: border-box;
-
     color: white;
     outline: none;
-
-    /* make long content behave */
     overflow: auto;
-    /* <-- scroll when needed */
+    /* scroll when needed */
     white-space: pre-wrap;
-    /* keep line breaks from paste */
+    /* keep pasted line breaks */
     overflow-wrap: break-word;
-    /* wrap long words / URLs */
     word-break: break-word;
-    /* extra safety for long tokens */
 }
 
-/* keep pasted images inside the panel */
 #editor img {
     max-width: 100%;
     height: auto;
