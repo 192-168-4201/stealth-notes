@@ -535,3 +535,26 @@ body {
 .title-input::placeholder {
     color: rgba(255, 255, 255, 0.55);
 }
+
+/* Danger button (Delete) */
+.btn-danger {
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 71, 87, 0.35);
+    background: rgba(255, 71, 87, 0.12);
+    color: white;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 120ms ease, border-color 120ms ease, transform 60ms ease;
+}
+
+.btn-danger:hover {
+    background: rgba(255, 71, 87, 0.18);
+    border-color: rgba(255, 71, 87, 0.50);
+}
+
+.btn-danger:active {
+    transform: translateY(1px);
+}

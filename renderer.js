@@ -13,7 +13,7 @@
 
       /* Content-reveal overlay (covers editor area; title field stays usable once revealed) */
       .title-overlay {
-        position: absolute; left: 0; right: 0; bottom: 0; top: 76px; /* under drag bar + title row */
+        position: absolute; left: 0; right: 0; bottom: 0; top: 76px; /* will be adjusted dynamically */
         display: block; opacity: 1;
         transition: opacity 220ms cubic-bezier(.2,.8,.2,1);
         pointer-events: auto; cursor: text;
@@ -39,6 +39,7 @@
         const sidebar = document.getElementById('sidebar');
         const notesList = document.getElementById('notesList');
         const newNoteBtn = document.getElementById('newNoteBtn');
+        const delNoteBtn = document.getElementById('delNoteBtn');
         const titleInput = document.getElementById('titleInput');
         const editor = document.getElementById('editor');
         const main = document.querySelector('.main-content');
@@ -47,6 +48,7 @@
 
         if (minBtn) minBtn.addEventListener('click', () => window.win?.animateMinimize?.());
         if (closeBtn) closeBtn.addEventListener('click', () => window.win?.close?.());
+        if (delNoteBtn) delNoteBtn.addEventListener('click', () => deleteActiveNote());
 
         if (!container || !sidebar || !notesList || !newNoteBtn || !editor || !main || !titleInput) return;
 
@@ -108,8 +110,16 @@
             overlay.innerHTML = `<div class="title-overlay__hint">Click or start typing</div>`;
             main.appendChild(overlay);
             overlay.addEventListener('click', revealEditor);
+            updateOverlayTop(); // set correct top initially
             return overlay;
         }
+        function updateOverlayTop() {
+            const dragH = document.querySelector('.drag-bar')?.clientHeight ?? 32;
+            const titleH = document.querySelector('.title-row')?.clientHeight ?? 44;
+            if (overlay) overlay.style.top = `${dragH + titleH}px`;
+        }
+        window.addEventListener('resize', updateOverlayTop);
+
         function concealEditorForActiveIfNeeded(activeNote) {
             ensureOverlay();
             const shouldConceal =
@@ -127,7 +137,9 @@
                 editor.classList.remove('editor--concealed');
                 editorConcealed = false;
             }
+            updateOverlayTop();
         }
+
         function revealEditor() {
             if (!editorConcealed) return;
             overlay.classList.add('title-overlay--hidden');
@@ -136,14 +148,49 @@
             if (model.activeId != null) revealedById.add(model.activeId);
             editor.focus();
         }
-        // Starter keys reveal
+
+        // Starter keys reveal + bridge first keystroke into the editor
         document.addEventListener('keydown', (e) => {
             if (splashActive || !editorConcealed) return;
+
+            // If user is typing in an input/textarea or another contenteditable, let it through
+            const ae = document.activeElement;
+            if (
+                ae &&
+                (
+                    ae.tagName === 'INPUT' ||
+                    ae.tagName === 'TEXTAREA' ||
+                    (ae.isContentEditable && ae !== editor)
+                )
+            ) {
+                return;
+            }
+
             if (e.ctrlKey || e.metaKey || e.altKey) return;
             const k = e.key;
             const starter = (k.length === 1) || k === 'Enter' || k === 'Backspace' || k === 'Delete' || k === 'Tab';
-            if (starter) revealEditor();
+            if (!starter) return;
+
+            e.preventDefault();            // don't let the key vanish
+            revealEditor();                // shows editor + focuses it
+
+            // insert the key after focus has landed
+            setTimeout(() => {
+                if (k.length === 1) {
+                    document.execCommand('insertText', false, k);
+                } else if (k === 'Enter') {
+                    document.execCommand('insertLineBreak');
+                } else if (k === 'Tab') {
+                    document.execCommand('insertText', false, '\t');
+                } else if (k === 'Backspace') {
+                    document.execCommand('delete');
+                } else if (k === 'Delete') {
+                    document.execCommand('forwardDelete');
+                }
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+            }, 0);
         });
+
         editor.addEventListener('beforeinput', () => { if (editorConcealed) revealEditor(); });
 
         // ===== Sidebar grow/shrink (with fullscreen inward) =====
@@ -236,6 +283,41 @@
             if (!splashActive) window.win?.toggleFullScreen?.();
         });
 
+        function deleteNoteById(id, { confirm = true } = {}) {
+            const idx = model.notes.findIndex(n => n.id === id);
+            if (idx < 0) return;
+            const n = model.notes[idx];
+
+            if (confirm && !window.confirm(`Delete “${n.title || 'Untitled'}”?`)) return;
+
+            // Remove from list
+            model.notes.splice(idx, 1);
+
+            // If we deleted the active note, pick a neighbor (or create a fresh one)
+            if (model.activeId === id) {
+                if (model.notes.length === 0) {
+                    model.activeId = null;
+                    renderNotes();
+                    titleInput.value = 'Untitled';
+                    editor.textContent = '';
+                    createNote('title');
+                } else {
+                    const nextIdx = Math.min(idx, model.notes.length - 1);
+                    const next = model.notes[nextIdx];
+                    renderNotes();
+                    selectNote(next.id);
+                }
+            } else {
+                renderNotes();
+                scheduleSave();
+            }
+        }
+
+        function deleteActiveNote(opts) {
+            if (model.activeId == null) return;
+            deleteNoteById(model.activeId, opts);
+        }
+
         // ===== Notes list rendering =====
         function renderNotes() {
             notesList.innerHTML = '';
@@ -251,6 +333,10 @@
                 li.dataset.id = String(n.id);
                 if (n.id === model.activeId) li.classList.add('active');
                 li.addEventListener('click', () => selectNote(n.id));
+                li.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    deleteNoteById(n.id);
+                });
                 notesList.appendChild(li);
             });
         }
@@ -266,7 +352,12 @@
 
             concealEditorForActiveIfNeeded(n);
 
-            if (!splashActive && !editorConcealed) editor.focus();
+            // Focus: title for empty (concealed) notes; editor for populated ones
+            if (!splashActive) {
+                if (editorConcealed) titleInput.focus();
+                else editor.focus();
+            }
+
             renderNotes();
             scheduleSave();
         }
@@ -437,6 +528,30 @@
             else if (e.key === 'ArrowDown') { e.preventDefault(); qsSel = Math.min(qsSel + 1, Math.max(0, qsItems.length - 1)); renderQS(qsInput.value); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); qsSel = Math.max(qsSel - 1, 0); renderQS(qsInput.value); }
             else if (e.key === 'Enter') { e.preventDefault(); openItem(qsSel); }
+            else if (e.key === 'Delete') {
+                e.preventDefault();
+                const it = qsItems[qsSel];
+                if (it?.type === 'note') {
+                    if (window.confirm(`Delete “${it.row.title}”?`)) {
+                        deleteNoteById(it.row.id, { confirm: false });
+                        renderQS(qsInput.value); // refresh results
+                    }
+                }
+            }
+        });
+
+        // Global delete shortcut (Cmd/Ctrl+Backspace/Delete) when not in QS
+        document.addEventListener('keydown', (e) => {
+            if (splashActive) return;
+            // Don't handle if Quick Switcher is open (it has its own Delete behavior)
+            if (typeof qsOpen !== 'undefined' && qsOpen) return;
+
+            const mod = e.ctrlKey || e.metaKey;
+            const inField = document.activeElement === editor || document.activeElement === titleInput;
+            if (mod && inField && (e.key === 'Backspace' || e.key === 'Delete')) {
+                e.preventDefault();
+                deleteActiveNote();
+            }
         });
 
         // Load persisted notes on boot (migrate missing flags)
