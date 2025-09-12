@@ -1,31 +1,25 @@
-// renderer.js — splash gate, inward/right grow, title-overlay reveal, autosave, quick switcher
+// renderer.js — splash gate, inward/right grow, title field (independent), overlay reveal, autosave, quick switcher
 (() => {
     if (window.__notesInit) return;
     window.__notesInit = true;
 
     window.addEventListener('DOMContentLoaded', () => {
-        // Inject minimal CSS used by title overlay
+        // Inject minimal CSS used by title overlay (keep it here to avoid touching styles.css)
         const style = document.createElement('style');
         style.textContent = `
       /* Editor fade conceal/reveal */
       #editor { transition: opacity 220ms cubic-bezier(.2,.8,.2,1); }
       .editor--concealed { opacity: 0; pointer-events: none; }
 
-      /* Title overlay that sits above the editor pane */
+      /* Content-reveal overlay (covers editor area; title field stays usable once revealed) */
       .title-overlay {
-        position: absolute; inset: 0; border-radius: 14px;
+        position: absolute; left: 0; right: 0; bottom: 0; top: 76px; /* under drag bar + title row */
         display: block; opacity: 1;
         transition: opacity 220ms cubic-bezier(.2,.8,.2,1);
         pointer-events: auto; cursor: text;
       }
       .title-overlay--hidden { opacity: 0; pointer-events: none; }
 
-      .title-overlay__text {
-        position: absolute; top: 16px; left: 20px; right: 20px;
-        font-size: 18px; font-weight: 600; color: rgba(255,255,255,.92);
-        text-shadow: 0 2px 10px rgba(0,0,0,.35);
-        user-select: none;
-      }
       .title-overlay__hint {
         position: absolute; bottom: 8%; left: 0; right: 0; text-align: center;
         font-size: .9rem; letter-spacing: .04em;
@@ -45,6 +39,7 @@
         const sidebar = document.getElementById('sidebar');
         const notesList = document.getElementById('notesList');
         const newNoteBtn = document.getElementById('newNoteBtn');
+        const titleInput = document.getElementById('titleInput');
         const editor = document.getElementById('editor');
         const main = document.querySelector('.main-content');
         const minBtn = document.getElementById('minBtn');
@@ -53,7 +48,7 @@
         if (minBtn) minBtn.addEventListener('click', () => window.win?.animateMinimize?.());
         if (closeBtn) closeBtn.addEventListener('click', () => window.win?.close?.());
 
-        if (!container || !sidebar || !notesList || !newNoteBtn || !editor || !main) return;
+        if (!container || !sidebar || !notesList || !newNoteBtn || !editor || !main || !titleInput) return;
 
         // Tunables
         const REQUEST_W = 280;               // == --sidebar-w in CSS
@@ -79,27 +74,41 @@
         splash?.addEventListener('click', dismissSplash);
         document.addEventListener('keydown', () => { if (splashActive) dismissSplash(); });
 
-        // ===== Title-overlay reveal system =====
+        // ===== Model + persistence =====
+        // manualTitle: boolean — true after user edits title explicitly; we stop auto-suggesting
+        const model = { notes: [], activeId: null, nextId: 1 };
+
+        // Debounced autosave
+        let saveT = null;
+        function scheduleSave() {
+            clearTimeout(saveT);
+            saveT = setTimeout(() => {
+                const payload = {
+                    version: 2,
+                    notes: model.notes,
+                    activeId: model.activeId,
+                    nextId: model.nextId,
+                    savedAt: Date.now(),
+                };
+                window.notesIO?.save?.(payload);
+            }, 500);
+        }
+
+        const titleFrom = (t) => (t || '').split(/\r?\n/)[0].trim() || 'Untitled';
+
+        // ===== Title-overlay reveal system (editor only) =====
         let overlay = null;
-        let editorConcealed = false;
-        const revealedById = new Set(); // session memory
+        let editorConcealed = false;   // is editor hidden by overlay?
+        const revealedById = new Set();
 
         function ensureOverlay() {
             if (overlay) return overlay;
             overlay = document.createElement('div');
             overlay.className = 'title-overlay';
-            overlay.innerHTML = `
-        <div class="title-overlay__text" id="titleOverlayText">New note</div>
-        <div class="title-overlay__hint">Click or start typing</div>
-      `;
+            overlay.innerHTML = `<div class="title-overlay__hint">Click or start typing</div>`;
             main.appendChild(overlay);
             overlay.addEventListener('click', revealEditor);
             return overlay;
-        }
-        function setOverlayTitle(text) {
-            ensureOverlay();
-            const el = overlay.querySelector('#titleOverlayText');
-            el.textContent = text || 'New note';
         }
         function concealEditorForActiveIfNeeded(activeNote) {
             ensureOverlay();
@@ -227,27 +236,7 @@
             if (!splashActive) window.win?.toggleFullScreen?.();
         });
 
-        // ---------- minimal notes model + persistence ----------
-        const model = { notes: [], activeId: null, nextId: 1 };
-
-        // Debounced autosave
-        let saveT = null;
-        function scheduleSave() {
-            clearTimeout(saveT);
-            saveT = setTimeout(() => {
-                const payload = {
-                    version: 1,
-                    notes: model.notes,
-                    activeId: model.activeId,
-                    nextId: model.nextId,
-                    savedAt: Date.now(),
-                };
-                window.notesIO?.save?.(payload);
-            }, 500);
-        }
-
-        const titleFrom = (t) => (t || '').split(/\r?\n/)[0].trim() || 'Untitled';
-
+        // ===== Notes list rendering =====
         function renderNotes() {
             notesList.innerHTML = '';
             model.notes.forEach(n => {
@@ -255,8 +244,8 @@
 
                 const titleEl = document.createElement('span');
                 titleEl.className = 'note-title';
-                titleEl.textContent = n.title;
-                titleEl.title = n.title;
+                titleEl.textContent = n.title || 'Untitled';
+                titleEl.title = titleEl.textContent;
                 li.appendChild(titleEl);
 
                 li.dataset.id = String(n.id);
@@ -271,8 +260,10 @@
             if (!n) return;
             model.activeId = id;
 
-            setOverlayTitle(n.title);
+            // Populate title + content
+            titleInput.value = n.title || 'Untitled';
             editor.textContent = n.content || '';
+
             concealEditorForActiveIfNeeded(n);
 
             if (!splashActive && !editorConcealed) editor.focus();
@@ -280,33 +271,65 @@
             scheduleSave();
         }
 
-        function createNote(focus = true) {
+        // Create note, focus target: 'title' | 'editor'
+        function createNote(focusTarget = 'title') {
             const id = model.nextId++;
-            const n = { id, title: 'Untitled', content: '' };
+            const n = { id, title: 'Untitled', content: '', manualTitle: false };
             model.notes.unshift(n);
             model.activeId = id;
             renderNotes();
 
+            titleInput.value = n.title;
             editor.textContent = '';
-            setOverlayTitle(n.title);
+
             concealEditorForActiveIfNeeded(n);
 
-            if (focus && !splashActive && !editorConcealed) editor.focus();
+            if (!splashActive) {
+                if (focusTarget === 'editor' && !editorConcealed) editor.focus();
+                else titleInput.focus();
+            }
             scheduleSave();
         }
 
+        // Title input: user rename => lock manualTitle, update list + save
+        titleInput.addEventListener('input', () => {
+            const n = model.notes.find(nn => nn.id === model.activeId);
+            if (!n) return;
+            const v = titleInput.value.trim();
+            n.title = v || 'Untitled';
+            n.manualTitle = true;
+            renderNotes();
+            scheduleSave();
+        });
+        // Enter in title moves focus to editor
+        titleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (editorConcealed) revealEditor();
+                else editor.focus();
+            }
+        });
+
+        // Editor: update content; if title not manually set yet, auto-suggest from first line
         editor.addEventListener('input', () => {
             const n = model.notes.find(nn => nn.id === model.activeId);
             if (!n) return;
             if (editorConcealed) revealEditor();
+
             n.content = editor.textContent;
-            n.title = titleFrom(n.content);
-            setOverlayTitle(n.title);
+
+            if (!n.manualTitle) {
+                const suggested = titleFrom(n.content);
+                if (suggested && suggested !== 'Untitled') {
+                    n.title = suggested;
+                    titleInput.value = suggested;
+                }
+            }
             renderNotes();
             scheduleSave();
         });
 
-        newNoteBtn.addEventListener('click', () => createNote(true));
+        newNoteBtn.addEventListener('click', () => createNote('title'));
 
         // --- Quick Switcher (Ctrl/Cmd+K) ---
         const qs = document.getElementById('qs');
@@ -329,11 +352,11 @@
             if (!qs) return;
             qsOpen = false;
             qs.classList.add('hidden');
-            // Don't steal focus if title overlay is up
-            if (!editorConcealed) editor.focus();
+            // Restore focus smartly
+            if (!editorConcealed) editor.focus(); else titleInput.focus();
         }
         const norm = (s) => (s || '').toLowerCase();
-        function score(q, s) { // tiny fuzzy
+        function score(q, s) {
             q = norm(q); s = norm(s); if (!q) return 0;
             let i = 0, run = 0, pts = 0;
             for (const ch of s) { if (ch === q[i]) { i++; run++; pts += 2; } else if (run) { run = 0; pts--; } }
@@ -343,7 +366,7 @@
             const rows = model.notes.map(n => {
                 const firstLine = (n.content || '').split(/\r?\n/)[0];
                 const best = Math.max(score(query, n.title), score(query, firstLine));
-                return { id: n.id, title: n.title, preview: firstLine, s: best };
+                return { id: n.id, title: n.title || 'Untitled', preview: firstLine, s: best };
             }).filter(r => r.s >= 0).sort((a, b) => b.s - a.s).slice(0, 30);
             return rows;
         }
@@ -351,7 +374,6 @@
             const trimmed = q.trim();
             const rows = resultsFor(q);
 
-            // Always offer "Create" when query has text and no exact-title match
             const hasExact = !!model.notes.find(n => norm(n.title) === norm(trimmed));
             const offerCreate = !!trimmed && !hasExact;
 
@@ -377,7 +399,6 @@
                 qsList.appendChild(li);
             });
 
-            // Keep selection within bounds
             qsSel = Math.min(qsSel, Math.max(0, qsItems.length - 1));
             if (qsItems.length && !qsList.querySelector('li.k')) {
                 qsList.querySelectorAll('li')[qsSel]?.classList.add('k');
@@ -390,10 +411,17 @@
 
             if (item.type === 'create') {
                 closeQS();
-                createNote(true);
-                editor.textContent = q;
-                // Fire a real input so title/notes list update & autosave kicks in
-                editor.dispatchEvent(new Event('input', { bubbles: true }));
+                // Create a fresh note whose TITLE is the query; leave content empty
+                createNote('editor'); // focus editor next
+                const n = model.notes.find(nn => nn.id === model.activeId);
+                if (n) {
+                    n.title = q || 'Untitled';
+                    n.manualTitle = true;
+                    titleInput.value = n.title;
+                    renderNotes();
+                    scheduleSave();
+                }
+                // Keep editor empty so you can start writing content
                 return;
             }
             closeQS();
@@ -411,22 +439,22 @@
             else if (e.key === 'Enter') { e.preventDefault(); openItem(qsSel); }
         });
 
-        // Load persisted notes on boot
+        // Load persisted notes on boot (migrate missing flags)
         (async () => {
             try {
                 const saved = await window.notesIO?.load?.();
                 if (saved && Array.isArray(saved.notes) && saved.notes.length) {
-                    model.notes = saved.notes;
+                    model.notes = saved.notes.map(n => ({ manualTitle: false, ...n })); // migrate
                     model.activeId = saved.activeId ?? saved.notes[0]?.id ?? null;
                     model.nextId = saved.nextId ?? (saved.notes.reduce((m, n) => Math.max(m, n.id), 0) + 1);
                     renderNotes();
-                    if (model.activeId) selectNote(model.activeId); else createNote(false);
+                    if (model.activeId) selectNote(model.activeId); else createNote('title');
                 } else {
-                    createNote(false);
+                    createNote('title');
                 }
             } catch (err) {
                 console.error('notes: load failed', err);
-                createNote(false);
+                createNote('title');
             }
         })();
     });
