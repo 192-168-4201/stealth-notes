@@ -12,3 +12,9 @@ contextBridge.exposeInMainWorld('win', {
     toggleFullScreen: () => ipcRenderer.invoke('win:toggleFullScreen'),
     rightGrowCapacity: () => ipcRenderer.invoke('win:rightGrowCapacity'),
 });
+
+contextBridge.exposeInMainWorld('notesIO', {
+    load: () => ipcRenderer.invoke('notes:load'),
+    save: (payload) => ipcRenderer.invoke('notes:save', payload),
+    backup: () => ipcRenderer.invoke('notes:backup'),
+});

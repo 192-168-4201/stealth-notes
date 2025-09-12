@@ -291,7 +291,10 @@ body {
     /* above everything */
     display: grid;
     place-items: center;
-    background: radial-gradient(1200px 800px at 50% 40%, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.55));
+    /* Hard cover so nothing shows through behind the logo */
+    background:
+        radial-gradient(1200px 800px at 50% 40%, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.92)),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.92));
     cursor: pointer;
     opacity: 1;
     transform: scale(1);
@@ -425,4 +428,11 @@ body {
     font-weight: 800;
     font-style: italic;
     font-display: swap;
+}
+
+:root.app--splashing .main-content,
+:root.app--splashing #sidebar {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms cubic-bezier(.2, .8, .2, 1);
 }

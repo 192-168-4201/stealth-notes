@@ -186,6 +186,9 @@ async function animateGenieRestore({ scale = 0.10, duration = 320 } = {}) {
     animating = false;
 }
 
+const fs = require('fs');
+const fsp = fs.promises;
+
 // ===== Create window & IPC =====
 function createWindow() {
     win = new BrowserWindow({
@@ -230,11 +233,46 @@ function createWindow() {
     ipcMain.handle('win:toggleFullScreen', () => { if (win) win.setFullScreen(!win.isFullScreen()); });
     ipcMain.handle('win:rightGrowCapacity', () => rightGrowCapacity(win));
 
+    ipcMain.handle('notes:load', () => readNotesFile());
+    ipcMain.handle('notes:save', (_e, payload) => writeNotesFile(payload));
+    ipcMain.handle('notes:backup', () => backupNotesFile());
+
     // Windows/Linux: animate on restore from taskbar
     win.on('restore', async () => {
         if (wasGenieMinimized) await animateGenieRestore();
     });
 }
+
+// ---- persistence helpers ----
+function dataPaths() {
+    const dir = app.getPath('userData');
+    return {
+        dir,
+        notes: path.join(dir, 'notes.json'),
+        tmp: path.join(dir, 'notes.tmp.json'),
+        bak: path.join(dir, `notes.${Date.now()}.bak.json`)
+    };
+}
+
+async function readNotesFile() {
+    const { notes } = dataPaths();
+    try { return JSON.parse(await fsp.readFile(notes, 'utf8')); }
+    catch { return null; }
+}
+
+async function writeNotesFile(payload) {
+    const { dir, notes, tmp } = dataPaths();
+    await fsp.mkdir(dir, { recursive: true });
+    const json = JSON.stringify(payload, null, 2);
+    await fsp.writeFile(tmp, json, 'utf8');
+    await fsp.rename(tmp, notes); // atomic-ish on same volume
+}
+
+async function backupNotesFile() {
+    const { notes, bak } = dataPaths();
+    try { await fsp.copyFile(notes, bak); } catch { }
+}
+
 
 // ===== App lifecycle =====
 app.whenReady().then(createWindow);
