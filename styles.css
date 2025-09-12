@@ -279,6 +279,7 @@ body {
     border: 2px solid transparent;
     background-clip: padding-box;
 }
+
 #editor::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.22);
 }
@@ -329,6 +330,7 @@ body {
     transform: scale(1.02);
     pointer-events: none;
 }
+
 @media (prefers-reduced-motion: reduce) {
     .splash {
         transition: none;
@@ -435,4 +437,69 @@ body {
     opacity: 0;
     pointer-events: none;
     transition: opacity 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.qs.hidden {
+    display: none;
+}
+
+.qs {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, .45);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px)
+}
+
+.qs__sheet {
+    width: min(720px, 90vw);
+    margin: 10vh auto;
+    background: rgba(20, 20, 20, .9);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .5)
+}
+
+.qs__input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px 16px;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: #fff;
+    font-size: 16px;
+    overscroll-behavior: contain
+}
+
+.qs__list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 0;
+    max-height: 50vh;
+    overflow: auto
+}
+
+.qs__list li {
+    padding: 10px 16px;
+    color: #ddd;
+    cursor: pointer;
+    display: flex;
+    gap: 8px
+}
+
+.qs__list li.k {
+    background: rgba(255, 255, 255, .06)
+}
+
+.qs__title {
+    font-weight: 600
+}
+
+.qs__preview {
+    opacity: .7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
 }

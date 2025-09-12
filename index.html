@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8" />
   <title>Sleek Notes</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
 
   <div id="splash" class="splash" role="dialog" aria-label="Welcome screen">
@@ -12,7 +14,16 @@
     <div class="splash__hint">Click to start</div>
   </div>
 
-  <!-- Wallpaper sits behind and gets blurred by the glass panel --><div class="wallpaper" aria-hidden="true"></div>
+  <!-- Quick Switcher -->
+  <div id="qs" class="qs hidden" aria-hidden="true">
+    <div class="qs__sheet">
+      <input id="qsInput" class="qs__input" placeholder="Search notes… (Ctrl+K)" />
+      <ul id="qsList" class="qs__list"></ul>
+    </div>
+  </div>
+
+  <!-- Wallpaper sits behind and gets blurred by the glass panel -->
+  <div class="wallpaper" aria-hidden="true"></div>
 
   <div class="app-container">
     <!-- Sidebar (slides in; shows New note + list) -->
@@ -39,4 +50,5 @@
 
   <script src="renderer.js"></script>
 </body>
+
 </html>

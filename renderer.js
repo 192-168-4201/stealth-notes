@@ -1,10 +1,10 @@
-// renderer.js — splash gate, inward/right grow, title-overlay reveal, autosave
+// renderer.js — splash gate, inward/right grow, title-overlay reveal, autosave, quick switcher
 (() => {
     if (window.__notesInit) return;
     window.__notesInit = true;
 
     window.addEventListener('DOMContentLoaded', () => {
-        // Inject minimal CSS for overlay/reveal without touching styles.css
+        // Inject minimal CSS used by title overlay
         const style = document.createElement('style');
         style.textContent = `
       /* Editor fade conceal/reveal */
@@ -14,23 +14,21 @@
       /* Title overlay that sits above the editor pane */
       .title-overlay {
         position: absolute; inset: 0; border-radius: 14px;
-        display: block;
-        opacity: 1; transition: opacity 220ms cubic-bezier(.2,.8,.2,1);
+        display: block; opacity: 1;
+        transition: opacity 220ms cubic-bezier(.2,.8,.2,1);
         pointer-events: auto; cursor: text;
       }
       .title-overlay--hidden { opacity: 0; pointer-events: none; }
 
-      /* Title text top-left */
       .title-overlay__text {
         position: absolute; top: 16px; left: 20px; right: 20px;
         font-size: 18px; font-weight: 600; color: rgba(255,255,255,.92);
         text-shadow: 0 2px 10px rgba(0,0,0,.35);
         user-select: none;
       }
-      /* Optional hint center-bottom */
       .title-overlay__hint {
-        position: absolute; bottom: 8%; left: 0; right: 0;
-        text-align: center; font-size: .9rem; letter-spacing: .04em;
+        position: absolute; bottom: 8%; left: 0; right: 0; text-align: center;
+        font-size: .9rem; letter-spacing: .04em;
         color: rgba(255,255,255,.85); text-shadow: 0 2px 10px rgba(0,0,0,.45);
         user-select: none;
       }
@@ -73,7 +71,6 @@
                 splash?.remove();
                 splashActive = false;
                 document.documentElement.classList.remove('app--splashing');
-                // Do NOT force-focus editor here; we'll reveal/focus on click/type.
             };
             const dur = getComputedStyle(splash).transitionDuration;
             if (!dur || dur === '0s') finalize();
@@ -84,8 +81,8 @@
 
         // ===== Title-overlay reveal system =====
         let overlay = null;
-        let editorConcealed = false;                  // is editor currently hidden by overlay?
-        const revealedById = new Set();               // ephemeral per-note reveal memory (not persisted)
+        let editorConcealed = false;
+        const revealedById = new Set(); // session memory
 
         function ensureOverlay() {
             if (overlay) return overlay;
@@ -95,18 +92,15 @@
         <div class="title-overlay__text" id="titleOverlayText">New note</div>
         <div class="title-overlay__hint">Click or start typing</div>
       `;
-            // Keep overlay inside the main-content so it only covers the editor pane
             main.appendChild(overlay);
             overlay.addEventListener('click', revealEditor);
             return overlay;
         }
-
         function setOverlayTitle(text) {
             ensureOverlay();
             const el = overlay.querySelector('#titleOverlayText');
             el.textContent = text || 'New note';
         }
-
         function concealEditorForActiveIfNeeded(activeNote) {
             ensureOverlay();
             const shouldConceal =
@@ -125,7 +119,6 @@
                 editorConcealed = false;
             }
         }
-
         function revealEditor() {
             if (!editorConcealed) return;
             overlay.classList.add('title-overlay--hidden');
@@ -134,28 +127,18 @@
             if (model.activeId != null) revealedById.add(model.activeId);
             editor.focus();
         }
-
-        // Any “starter” key should reveal
+        // Starter keys reveal
         document.addEventListener('keydown', (e) => {
             if (splashActive || !editorConcealed) return;
-            // Skip pure modifier presses
             if (e.ctrlKey || e.metaKey || e.altKey) return;
-            // Keys that should reveal: characters, Enter, Backspace/Delete, Tab
             const k = e.key;
             const starter = (k.length === 1) || k === 'Enter' || k === 'Backspace' || k === 'Delete' || k === 'Tab';
-            if (starter) {
-                // Let the fade run, then send the key into the editor
-                revealEditor();
-            }
+            if (starter) revealEditor();
         });
-
-        // If somehow input fires while concealed, reveal immediately
         editor.addEventListener('beforeinput', () => { if (editorConcealed) revealEditor(); });
 
         // ===== Sidebar grow/shrink (with fullscreen inward) =====
-        let state = 'closed';
-        let opening = false;
-        let closing = false;
+        let state = 'closed', opening = false, closing = false;
         let openBarrierUntil = 0;
         const OPEN_SETTLE_MS = 80;
 
@@ -172,107 +155,73 @@
             const w = editor.offsetWidth;
             main.style.width = `${w}px`;
         }
-
         function pointerShouldCloseNow() {
             const r = editor.getBoundingClientRect();
             return lastMouse.x < r.right - CLOSE_M;
         }
-
         async function showSidebar() {
             if (state !== 'closed' || opening || closing) return;
-            opening = true;
-            state = 'opening';
-
+            opening = true; state = 'opening';
             await lockEditorWidthSafely();
-
             sidebar.classList.add('is-visible');
 
-            // Predict right-edge capacity and pre-apply remainder shift
             const cap = (await window.win?.rightGrowCapacity?.()) | 0;
             const expectedUsed = Math.min(REQUEST_W, Math.max(0, cap));
             const predictedRemainder = Math.max(0, REQUEST_W - expectedUsed);
             setShift(predictedRemainder);
             main.style.transition = `transform ${ANIM_MS}ms ${EASE}`;
 
-            // Ask main to grow; record actual
             const used = await window.win?.smoothGrowRight?.(REQUEST_W, ANIM_MS) || 0;
             lastGrowUsed = used;
 
             const remainder = Math.max(0, REQUEST_W - used);
             if (remainder !== predictedRemainder) setShift(remainder);
 
-            state = 'open';
-            opening = false;
+            state = 'open'; opening = false;
             openBarrierUntil = performance.now() + OPEN_SETTLE_MS;
 
             const shouldAutoClose = wantCloseAfterOpen || pointerShouldCloseNow();
             wantCloseAfterOpen = false;
             if (shouldAutoClose) hideSidebar();
         }
-
         async function hideSidebar() {
             if (state !== 'open' || opening || closing || performance.now() < openBarrierUntil) return;
-            closing = true;
-            state = 'closing';
-
+            closing = true; state = 'closing';
             sidebar.classList.remove('is-visible');
 
             const fs = await window.win?.isFullScreen?.();
-            if (!fs) {
-                await window.win?.smoothShrinkRight?.(lastGrowUsed, ANIM_MS);
-            } else {
-                main.style.transition = `transform ${ANIM_MS}ms ${EASE}`;
-            }
+            if (!fs) await window.win?.smoothShrinkRight?.(lastGrowUsed, ANIM_MS);
+            else main.style.transition = `transform ${ANIM_MS}ms ${EASE}`;
 
             lastGrowUsed = 0;
             setShift(0);
             main.style.removeProperty('width');
 
-            state = 'closed';
-            closing = false;
+            state = 'closed'; closing = false;
         }
-
-        // Edge hover open/close
         document.addEventListener('mousemove', (e) => {
             if (splashActive) return;
-            lastMouse.x = e.clientX;
-            lastMouse.y = e.clientY;
+            lastMouse.x = e.clientX; lastMouse.y = e.clientY;
 
             const r = editor.getBoundingClientRect();
             const x = e.clientX, y = e.clientY;
             const insideY = y >= r.top && y <= r.bottom;
             const nearRight = x <= r.right && x >= r.right - TRIGGER;
 
-            if (state === 'opening' && x < r.right - CLOSE_M) {
-                wantCloseAfterOpen = true;
-            }
-
-            if (state === 'closed' && insideY && nearRight && !opening && !closing) {
-                showSidebar(); return;
-            }
-
-            if (state === 'open' && !opening && !closing &&
-                performance.now() >= openBarrierUntil && x < r.right - CLOSE_M) {
-                hideSidebar();
-            }
+            if (state === 'opening' && x < r.right - CLOSE_M) wantCloseAfterOpen = true;
+            if (state === 'closed' && insideY && nearRight && !opening && !closing) { showSidebar(); return; }
+            if (state === 'open' && !opening && !closing && performance.now() >= openBarrierUntil && x < r.right - CLOSE_M) hideSidebar();
         });
-
         sidebar.addEventListener('mouseleave', (e) => {
             if (splashActive) return;
             const r = editor.getBoundingClientRect();
-            if (state === 'open' && !opening && !closing &&
-                performance.now() >= openBarrierUntil && e.clientX > r.right) {
-                hideSidebar();
-            }
+            if (state === 'open' && !opening && !closing && performance.now() >= openBarrierUntil && e.clientX > r.right) hideSidebar();
         });
 
         // Fullscreen toggles
         document.addEventListener('keydown', (e) => {
             if (splashActive) return;
-            if (e.key === 'F11') {
-                e.preventDefault();
-                window.win?.toggleFullScreen?.();
-            }
+            if (e.key === 'F11') { e.preventDefault(); window.win?.toggleFullScreen?.(); }
         });
         document.querySelector('.drag-bar')?.addEventListener('dblclick', () => {
             if (!splashActive) window.win?.toggleFullScreen?.();
@@ -322,11 +271,8 @@
             if (!n) return;
             model.activeId = id;
 
-            // Update overlay title BEFORE content swap
             setOverlayTitle(n.title);
-
             editor.textContent = n.content || '';
-            // Decide conceal/reveal for this note
             concealEditorForActiveIfNeeded(n);
 
             if (!splashActive && !editorConcealed) editor.focus();
@@ -341,7 +287,6 @@
             model.activeId = id;
             renderNotes();
 
-            // Editor starts empty
             editor.textContent = '';
             setOverlayTitle(n.title);
             concealEditorForActiveIfNeeded(n);
@@ -353,9 +298,7 @@
         editor.addEventListener('input', () => {
             const n = model.notes.find(nn => nn.id === model.activeId);
             if (!n) return;
-            // If user typed while concealed (race), reveal now
             if (editorConcealed) revealEditor();
-
             n.content = editor.textContent;
             n.title = titleFrom(n.content);
             setOverlayTitle(n.title);
@@ -364,6 +307,109 @@
         });
 
         newNoteBtn.addEventListener('click', () => createNote(true));
+
+        // --- Quick Switcher (Ctrl/Cmd+K) ---
+        const qs = document.getElementById('qs');
+        const qsInput = document.getElementById('qsInput');
+        const qsList = document.getElementById('qsList');
+
+        let qsOpen = false, qsSel = 0;
+        let qsItems = []; // [{type:'create',query}|{type:'note',row}]
+
+        function openQS() {
+            if (splashActive || !qs) return;
+            qsOpen = true;
+            qs.classList.remove('hidden');
+            qsInput.value = '';
+            qsSel = 0;
+            renderQS('');
+            qsInput.focus();
+        }
+        function closeQS() {
+            if (!qs) return;
+            qsOpen = false;
+            qs.classList.add('hidden');
+            // Don't steal focus if title overlay is up
+            if (!editorConcealed) editor.focus();
+        }
+        const norm = (s) => (s || '').toLowerCase();
+        function score(q, s) { // tiny fuzzy
+            q = norm(q); s = norm(s); if (!q) return 0;
+            let i = 0, run = 0, pts = 0;
+            for (const ch of s) { if (ch === q[i]) { i++; run++; pts += 2; } else if (run) { run = 0; pts--; } }
+            return i === q.length ? pts + (s.startsWith(q) ? 5 : 0) : -1;
+        }
+        function resultsFor(query) {
+            const rows = model.notes.map(n => {
+                const firstLine = (n.content || '').split(/\r?\n/)[0];
+                const best = Math.max(score(query, n.title), score(query, firstLine));
+                return { id: n.id, title: n.title, preview: firstLine, s: best };
+            }).filter(r => r.s >= 0).sort((a, b) => b.s - a.s).slice(0, 30);
+            return rows;
+        }
+        function renderQS(q) {
+            const trimmed = q.trim();
+            const rows = resultsFor(q);
+
+            // Always offer "Create" when query has text and no exact-title match
+            const hasExact = !!model.notes.find(n => norm(n.title) === norm(trimmed));
+            const offerCreate = !!trimmed && !hasExact;
+
+            qsItems = [];
+            qsList.innerHTML = '';
+
+            if (offerCreate) {
+                qsItems.push({ type: 'create', query: trimmed });
+                const li = document.createElement('li');
+                if (qsSel === 0) li.classList.add('k');
+                li.innerHTML = `<span class="qs__title">Create:</span><span class="qs__preview">${trimmed}</span>`;
+                li.addEventListener('click', () => openItem(0));
+                qsList.appendChild(li);
+            }
+
+            rows.forEach((r, idx) => {
+                qsItems.push({ type: 'note', row: r });
+                const li = document.createElement('li');
+                const itemIndex = (offerCreate ? 1 : 0) + idx;
+                if (itemIndex === qsSel) li.classList.add('k');
+                li.innerHTML = `<span class="qs__title">${r.title}</span><span class="qs__preview">${r.preview}</span>`;
+                li.addEventListener('click', () => openItem(itemIndex));
+                qsList.appendChild(li);
+            });
+
+            // Keep selection within bounds
+            qsSel = Math.min(qsSel, Math.max(0, qsItems.length - 1));
+            if (qsItems.length && !qsList.querySelector('li.k')) {
+                qsList.querySelectorAll('li')[qsSel]?.classList.add('k');
+            }
+        }
+        function openItem(idx) {
+            const item = qsItems[Math.max(0, idx)];
+            if (!item) return;
+            const q = qsInput.value.trim();
+
+            if (item.type === 'create') {
+                closeQS();
+                createNote(true);
+                editor.textContent = q;
+                // Fire a real input so title/notes list update & autosave kicks in
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
+            closeQS();
+            selectNote(item.row.id);
+        }
+        qsInput?.addEventListener('input', e => { qsSel = 0; renderQS(e.target.value); });
+        qs?.addEventListener('click', e => { if (e.target === qs) closeQS(); });
+        document.addEventListener('keydown', (e) => {
+            const mod = e.ctrlKey || e.metaKey;
+            if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); qsOpen ? closeQS() : openQS(); return; }
+            if (!qsOpen) return;
+            if (e.key === 'Escape') { e.preventDefault(); closeQS(); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); qsSel = Math.min(qsSel + 1, Math.max(0, qsItems.length - 1)); renderQS(qsInput.value); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); qsSel = Math.max(qsSel - 1, 0); renderQS(qsInput.value); }
+            else if (e.key === 'Enter') { e.preventDefault(); openItem(qsSel); }
+        });
 
         // Load persisted notes on boot
         (async () => {
